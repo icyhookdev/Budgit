@@ -12,6 +12,33 @@ const budgetController = (() => {
     }
   }
 
+  return {
+    addItem: (type, des, val) => {
+
+      let id, newItem;
+
+      // create new ID
+      if(data.allItems[type].length === 0){
+        id = 0
+      }else{
+        id = data.allItems[type][data.allItems[type].length - 1].id + 1;
+      }
+
+
+      // create new item base on 'exp' or 'inc'
+      if(type === 'inc'){
+        newItem = new Income(id, des, val);
+      }else{
+        newItem = new Expense(id, des, val);
+      }
+
+      // push into the data structure
+      data.allItems[type].push(newItem);
+
+      return newItem;
+    },
+    testing: () => console.log(data)
+  }
 })();
 
 // UI Controller
@@ -56,9 +83,10 @@ const controller = ((budgetCtrl, UICtrl) => {
 
   const ctrlAddItem = () => {
     // get field input data
-      const input = UICtrl.getInput();
-
+    const input = UICtrl.getInput();
+    console.log(input.type);
     //  add item to the budget controller
+    const newItem = budgetCtrl.addItem(input.type, input.description, input.value);
 
     // add the item to UI
 
@@ -69,7 +97,7 @@ const controller = ((budgetCtrl, UICtrl) => {
 
   return{
     init: () => {
-      console.log('app has init');
+      console.log('app has init...');
       setupEventListeners();
     }
   }
