@@ -1,6 +1,17 @@
 // Budget Controller
 const budgetController = (() => {
 
+  const data = {
+    allItems: {
+      exp: [],
+      inc: []
+    },
+    totals: {
+      exp: 0,
+      inc: 0
+    }
+  }
+
 })();
 
 // UI Controller
