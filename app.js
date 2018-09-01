@@ -1,6 +1,16 @@
 // Budget Controller
 const budgetController = (() => {
 
+  const calculateTotal = (type) => {
+    let sum = 0;
+
+    data.allItems[type].forEach((cur) => {
+      sum += cur.value
+    })
+
+    data.totals[type] = sum;
+  }
+
   const data = {
     allItems: {
       exp: [],
@@ -9,7 +19,9 @@ const budgetController = (() => {
     totals: {
       exp: 0,
       inc: 0
-    }
+    },
+    budget: 0,
+    procentage: -1
   }
 
   return {
@@ -36,6 +48,39 @@ const budgetController = (() => {
 
       return newItem;
     },
+    calculateBudget: () => {
+      // calculate total income and expenses
+      calculateTotal('exp');
+      calculateTotal('inc');
+
+      // calculate the budget income - expenses
+      data.budget = data.totals.inc - data.totals.exp;
+
+      // calculate the percentage of income that we spent
+      if(data.totals.inc > 0) {
+        data.procentage = Math.round((data.totals.exp / data.totals.inc) * 100);
+      }
+
+    },
+    deleteItem: (type, id) => {
+      const ids = data.allItems[type].map((current) => {
+        return current.id;
+      });
+
+      const index = ids.indexOf(id);
+
+      if(index !== -1){
+        data.allItems[type].splice(index, 1);
+      }
+    },
+    getBudget: () => {
+      return {
+        budget: data.budget,
+        totalInc: data.totals.inc,
+        totalExp: data.totals.exp,
+        procentage: data.procentage
+      }
+    },
     testing: () => console.log(data)
   }
 })();
@@ -48,7 +93,12 @@ const UIController = (() => {
     inputValue: '.add__value',
     addButton: '.add__btn',
     incomeList: '.income__list',
-    expenseList: '.expenses__list'
+    expenseList: '.expenses__list',
+    budgetValue: '.budget__value',
+    totalInc: '.budget__income--value',
+    totalExp: '.budget__expenses--value',
+    expPorcentage: '.budget__expenses--percentage',
+    container: '.container '
   }
 
   return {
@@ -56,7 +106,7 @@ const UIController = (() => {
       return {
         type: document.querySelector(DOMstring.inputType).value,
         description: document.querySelector(DOMstring.inputDescription).value,
-        value: document.querySelector(DOMstring.inputValue).value
+        value: parseFloat(document.querySelector(DOMstring.inputValue).value)
       }
     },
     addListItem: (obj, type) => {
@@ -66,7 +116,7 @@ const UIController = (() => {
       // create HTML string with placeholder text
       if(type === 'inc'){
         element = DOMstring.incomeList;
-        html =`<div class="item clearfix" id="income-%id%">
+        html =`<div class="item clearfix" id="inc-%id%">
           <div class="item__description">%description%</div>
           <div class="right clearfix">
             <div class="item__value">%value%</div>
@@ -77,7 +127,7 @@ const UIController = (() => {
         </div>`;
       }else if(type === 'exp'){
         element = DOMstring.expenseList;
-        html =`<div class="item clearfix" id="expense-%id%">
+        html =`<div class="item clearfix" id="exp-%id%">
           <div class="item__description">%description%</div>
           <div class="right clearfix">
             <div class="item__value">%value%</div>
@@ -98,13 +148,28 @@ const UIController = (() => {
       // insert the HTML into the DOM
       document.querySelector(element).insertAdjacentHTML('beforeend', newHtml);
     },
+    deleteListItem: (id) => {
+      const el = document.getElementById(id);
+      el.remove();
+    },
     clearFields: () => {
       const fields = document.querySelectorAll(`${DOMstring.inputDescription},${DOMstring.inputValue}`);
       const fieldsArr = Array.from(fields);
 
-      fieldsArr.forEach((current, index, array) => {
-        current.value = '';
-      })
+      fieldsArr.forEach((current, index, array) => current.value = '');
+
+      fieldsArr[0].focus();
+    },
+    displayBudget: (obj) => {
+      document.querySelector(DOMstring.budgetValue).textContent = obj.budget;
+      document.querySelector(DOMstring.totalInc).textContent = `+ ${obj.totalInc}`;
+      document.querySelector(DOMstring.totalExp).textContent = `- ${obj.totalExp}`;
+
+      if(obj.procentage > 0){
+        document.querySelector(DOMstring.expPorcentage).textContent = `${obj.procentage}%`;
+      }else{
+        document.querySelector(DOMstring.expPorcentage).textContent = '---';
+      }
     },
     getDomStrings: () => {
       return DOMstring;
@@ -127,26 +192,72 @@ const controller = ((budgetCtrl, UICtrl) => {
         ctrlAddItem();
       }
     });
+
+    document.querySelector(DOM.container).addEventListener('click', ctrlDeleteItem);
+  }
+
+  const udpateBudget = () => {
+    // calculate the budget
+    budgetCtrl.calculateBudget();
+
+    //  return the budget
+    const budget = budgetCtrl.getBudget();
+
+    // display budget on the UI
+    UICtrl.displayBudget(budget);
   }
 
   const ctrlAddItem = () => {
     // get field input data
     const input = UICtrl.getInput();
 
-    //  add item to the budget controller
-    const newItem = budgetCtrl.addItem(input.type, input.description, input.value);
+    let newItem;
 
-    // add the item to UI
-    UICtrl.addListItem(newItem, input.type);
-    UICtrl.clearFields();
-    // calculate the budget
+    if(input.description !== '' && !isNaN(input.value) && input.value > 0){
+      //  add item to the budget controller
+      newItem = budgetCtrl.addItem(input.type, input.description, input.value);
 
-    // display budget on the UI
+      // add the item to UI
+      UICtrl.addListItem(newItem, input.type);
+
+      // clear fields
+      UICtrl.clearFields();
+
+      udpateBudget();
+    }
+
+  }
+
+  const ctrlDeleteItem = (e) => {
+    const itemId = e.target.parentNode.parentNode.parentNode.parentNode.id;
+    let splitID, type, id;
+    if(itemId){
+
+      splitID = itemId.split('-');
+      type = splitID[0];
+      id = parseInt(splitID[1]);
+
+      // delete the item from the data structure
+      budgetCtrl.deleteItem(type, id);
+
+      // delete the item from the UI
+      UICtrl.deleteListItem(itemId);
+
+      // re-render display items
+      udpateBudget();
+    }
+
   }
 
   return{
     init: () => {
       console.log('app has init...');
+      UICtrl.displayBudget({
+        budget: 0,
+        totalInc: 0,
+        totalExp: 0,
+        procentage: -1
+      })
       setupEventListeners();
     }
   }
